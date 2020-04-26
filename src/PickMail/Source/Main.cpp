@@ -80,6 +80,32 @@ auto GetShuffledEmailToPick(const File& csv_file, int count) -> std::vector<std:
 	return {begin(emails), begin(emails) + count};
 }
 
+auto MaskEmails(const std::vector<std::string>& emails) -> std::vector<std::string>
+{
+	//
+	// For email with account name less than 4 characters, use **, others use as many * as
+	// possible.
+	//
+
+	std::vector<std::string> masked_emails(emails.size());
+
+	for (const auto& email : emails) {
+		String masked(email);
+		auto mask_end = masked.indexOfChar('@');
+		jassert(mask_end > 0);
+		if (mask_end < 4) {
+			masked = masked.replaceSection(1, 2, "**");
+		}
+		else {
+			auto count = mask_end - 2;
+			masked = masked.replaceSection(2, count - 1, String::repeatedString("*", count - 1));
+		}
+
+		masked_emails.push_back(masked.toStdString());
+	}
+	return std::move(masked_emails);
+}
+
 void SaveEmailToFile(const std::vector<std::string>& emails, const File& file_path)
 {
 	std::unique_ptr<FileOutputStream> fos(file_path.createOutputStream());
@@ -89,7 +115,7 @@ void SaveEmailToFile(const std::vector<std::string>& emails, const File& file_pa
 }
 
 #if ENABLE_TESTS
-TEST_CASE("Read email address from file")
+TEST_CASE("Read email address from file", "[.]")
 {
 	const auto csv_file = GetTestFile();
 	CHECK(csv_file.existsAsFile());
@@ -148,6 +174,23 @@ TEST_CASE("Save email list to file")
 	REQUIRE(std::includes(begin(emails), end(emails), begin(r), end(r)));
 }
 
+TEST_CASE("Mask given emails", "[]")
+{
+	std::vector<std::string> emails
+	{
+		"123@gmail.com",
+		"123123456789@gmail.com",
+		"123456789@gmail.com",
+	};
+
+	auto masked_emails = MaskEmails(emails);
+
+	for (const auto& email : masked_emails) {
+		std::cout << email << std::endl;
+	}
+}
+
+
 #else // ENABLE_TESTS
 
 int main(int argc, char* argv[])
@@ -168,11 +211,15 @@ int main(int argc, char* argv[])
 		email_count = atoi(argv[2]);
 
 	auto emails = GetShuffledEmailToPick(csv_file, email_count);
+	auto emails_masked = MaskEmails(emails);
 
-	printf("Here are the %d lucky subscribers:\n", email_count);
-	for (const auto& e : emails) {
+	printf("Here are the %d lucky subscribers:\n\n", email_count);
+	for (const auto& e : emails_masked) {
 		printf("\t%s\n", e.c_str());
 	}
+
+	// Print some marketing text...
+	printf("\nBe sure to subscribe: http://thecpp.news \n");
 
 	auto result_file = File::getSpecialLocation(File::hostApplicationPath)
 		.getParentDirectory()
