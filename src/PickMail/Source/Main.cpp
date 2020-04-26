@@ -87,7 +87,7 @@ auto MaskEmails(const std::vector<std::string>& emails) -> std::vector<std::stri
 	// possible.
 	//
 
-	std::vector<std::string> masked_emails(emails.size());
+	std::vector<std::string> masked_emails;
 
 	for (const auto& email : emails) {
 		String masked(email);
@@ -200,20 +200,31 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	const auto csv_file = File(argv[1]);
+	const auto csv_file = File::getSpecialLocation(File::hostApplicationPath)
+		.getParentDirectory()
+		.getChildFile(argv[1]);
+
 	if (!csv_file.existsAsFile()) {
 		printf("Error: the csv file not eixsts.\n");
 		return -1;
 	}
 
+	// By default, pick 3 emails.
 	int email_count = 3;
 	if (argc > 2)
 		email_count = atoi(argv[2]);
 
-	auto emails = GetShuffledEmailToPick(csv_file, email_count);
-	auto emails_masked = MaskEmails(emails);
+	const auto all_emails = GetShuffledEmailToPick(csv_file);
+	std::vector<std::string> picked_emails(all_emails.begin(), all_emails.begin() + email_count);
+	auto emails_masked = MaskEmails(picked_emails);
 
-	printf("Here are the %d lucky subscribers:\n\n", email_count);
+	// Print out all emails with mask
+	printf("\nWe have total %d readers enrolled:\n\n", all_emails.size());
+	for (const auto& e : MaskEmails(all_emails)) {
+		printf("\t%s\n", e.c_str());
+	}
+
+	printf("\nHere are the %d readers:\n\n", email_count);
 	for (const auto& e : emails_masked) {
 		printf("\t%s\n", e.c_str());
 	}
@@ -226,7 +237,7 @@ int main(int argc, char* argv[])
 		.getChildFile("picked_emails.txt");
 	result_file.deleteFile();
 
-	SaveEmailToFile(emails, result_file);
+	SaveEmailToFile(picked_emails, result_file);
 
 	return 0;
 }
